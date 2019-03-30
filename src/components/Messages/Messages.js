@@ -43,15 +43,11 @@ class Messages extends Component {
       .on("value", snapshot => {
         const messageObject = snapshot.val();
 
-        console.log(messageObject);
-
         if (messageObject) {
           const messageList = Object.keys(messageObject).map(key => ({
             ...messageObject[key],
             uid: key
           }));
-
-          console.log(messageList);
 
           this.setState({
             messages: messageList,
@@ -130,7 +126,6 @@ class Messages extends Component {
 
             {messages ? (
               <MessageList
-                authUser={authUser}
                 messages={messages.map(message => ({
                   ...message,
                   user: users

@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 
+import { AuthUserContext } from "../Session";
 import * as ROLES from "../../constants/roles";
 
 class MessageItem extends Component {
@@ -42,39 +43,45 @@ class MessageItem extends Component {
   };
 
   render() {
-    const { authUser, message, onRemoveMessage } = this.props;
+    const { message, onRemoveMessage } = this.props;
     const { editMode, editText } = this.state;
 
     return (
-      <li>
-        {editMode ? (
-          <span>
-            <input
-              type="text"
-              value={editText}
-              onChange={this.onChangeEditText}
-            />
-            <button onClick={this.onSaveEditText}>Save</button>
-            <button onClick={this.onToggleEditMode}>Reset</button>
-          </span>
-        ) : (
-          <span>
-            <strong>{message.user.username || message.user.userId}</strong>{" "}
-            {this.getFormattedTimestamp(message.createdAt)} {message.text}
-            {message.editedAt && <span>(Edited)</span>}
-            {authUser &&
-              (authUser.uid === message.userId ||
-                authUser.roles.includes(ROLES.ADMIN)) && (
-                <span>
-                  <button onClick={this.onToggleEditMode}>Edit</button>
-                  <button onClick={() => onRemoveMessage(authUser, message)}>
-                    Remove
-                  </button>
-                </span>
-              )}
-          </span>
+      <AuthUserContext.Consumer>
+        {authUser => (
+          <li>
+            {editMode ? (
+              <span>
+                <input
+                  type="text"
+                  value={editText}
+                  onChange={this.onChangeEditText}
+                />
+                <button onClick={this.onSaveEditText}>Save</button>
+                <button onClick={this.onToggleEditMode}>Reset</button>
+              </span>
+            ) : (
+              <span>
+                <strong>{message.user.username || message.user.userId}</strong>{" "}
+                {this.getFormattedTimestamp(message.createdAt)} {message.text}
+                {message.editedAt && <span>(Edited)</span>}
+                {authUser &&
+                  (authUser.uid === message.userId ||
+                    authUser.roles.includes(ROLES.ADMIN)) && (
+                    <span>
+                      <button onClick={this.onToggleEditMode}>Edit</button>
+                      <button
+                        onClick={() => onRemoveMessage(authUser, message)}
+                      >
+                        Remove
+                      </button>
+                    </span>
+                  )}
+              </span>
+            )}
+          </li>
         )}
-      </li>
+      </AuthUserContext.Consumer>
     );
   }
 }
