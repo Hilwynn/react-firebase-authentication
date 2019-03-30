@@ -1,6 +1,7 @@
 import React, { Component } from "react";
+import { inject, observer } from "mobx-react";
+import { compose } from "recompose";
 
-import { AuthUserContext } from "../Session";
 import { withFirebase } from "../Firebase";
 import MessageList from "./MessageList";
 
@@ -12,14 +13,15 @@ class Messages extends Component {
 
     this.state = {
       text: "",
-      loading: false,
-      messages: [],
-      limit: 5,
-      count: null
+      loading: false
     };
   }
 
   componentDidMount() {
+    if (!this.props.messageStore.messageList.length) {
+      this.setState({ loading: true });
+    }
+
     this.onListenForMessages();
   }
 
@@ -31,31 +33,17 @@ class Messages extends Component {
     this.setState({ loading: true });
 
     this.props.firebase.messages().on("value", snapshot => {
-      this.setState({
-        count: snapshot.numChildren()
-      });
+      this.props.messageStore.setCount(snapshot.numChildren());
     });
 
     this.props.firebase
       .messages()
       .orderByChild("createdAt")
-      .limitToLast(this.state.limit)
+      .limitToLast(this.props.messageStore.limit)
       .on("value", snapshot => {
-        const messageObject = snapshot.val();
+        this.props.messageStore.setMessages(snapshot.val());
 
-        if (messageObject) {
-          const messageList = Object.keys(messageObject).map(key => ({
-            ...messageObject[key],
-            uid: key
-          }));
-
-          this.setState({
-            messages: messageList,
-            loading: false
-          });
-        } else {
-          this.setState({ messages: null, loading: false });
-        }
+        this.setState({ loading: false });
       });
   }
 
@@ -98,56 +86,56 @@ class Messages extends Component {
   };
 
   onNextPage = () => {
-    const { limit, count } = this.state;
+    const { limit, count, setLimit } = this.props.messageStore;
 
     if (limit < count) {
-      this.setState(
-        state => ({ limit: state.limit + 5 }),
-        this.onListenForMessages
-      );
+      setLimit(limit + 5);
+      this.onListenForMessages();
     }
   };
 
   render() {
-    const { users } = this.props;
-    const { text, messages, loading, limit, count } = this.state;
+    const { users, messageStore, sessionStore } = this.props;
+    const { text, loading } = this.state;
+    const { limit, count } = messageStore;
+    const messages = messageStore.messageList;
 
     return (
-      <AuthUserContext.Consumer>
-        {authUser => (
-          <div>
-            {!loading && messages && limit < count && (
-              <button type="button" onClick={this.onNextPage}>
-                More
-              </button>
-            )}
-
-            {loading && <div>Loading ...</div>}
-
-            {messages ? (
-              <MessageList
-                messages={messages.map(message => ({
-                  ...message,
-                  user: users
-                    ? users[message.userId]
-                    : { userId: message.userId }
-                }))}
-                onEditMessage={this.onEditMessage}
-                onRemoveMessage={this.onRemoveMessage}
-              />
-            ) : (
-              <div>There are no messages ...</div>
-            )}
-
-            <form onSubmit={event => this.onCreateMessage(event, authUser)}>
-              <input type="text" value={text} onChange={this.onChangeText} />
-              <button type="submit">Send</button>
-            </form>
-          </div>
+      <div>
+        {!loading && messages && limit < count && (
+          <button type="button" onClick={this.onNextPage}>
+            More
+          </button>
         )}
-      </AuthUserContext.Consumer>
+
+        {loading && <div>Loading ...</div>}
+
+        {messages ? (
+          <MessageList
+            messages={messages.map(message => ({
+              ...message,
+              user: users ? users[message.userId] : { userId: message.userId }
+            }))}
+            onEditMessage={this.onEditMessage}
+            onRemoveMessage={this.onRemoveMessage}
+          />
+        ) : (
+          <div>There are no messages ...</div>
+        )}
+
+        <form
+          onSubmit={event => this.onCreateMessage(event, sessionStore.authUser)}
+        >
+          <input type="text" value={text} onChange={this.onChangeText} />
+          <button type="submit">Send</button>
+        </form>
+      </div>
     );
   }
 }
 
-export default withFirebase(Messages);
+export default compose(
+  withFirebase,
+  inject("messageStore", "sessionStore"),
+  observer
+)(Messages);
