@@ -1,6 +1,7 @@
 import React, { Component } from "react";
+import { inject, observer } from "mobx-react";
+import { compose } from "recompose";
 
-import { AuthUserContext } from "../Session";
 import * as ROLES from "../../constants/roles";
 
 class MessageItem extends Component {
@@ -15,8 +16,8 @@ class MessageItem extends Component {
 
   getFormattedTimestamp(timestamp) {
     const date = new Date(timestamp);
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
+    let hours = ("0" + date.getHours()).slice(-2);
+    let minutes = ("0" + date.getMinutes()).slice(-2);
 
     return `${hours}.${minutes}`;
   }
@@ -34,7 +35,7 @@ class MessageItem extends Component {
 
   onSaveEditText = () => {
     this.props.onEditMessage(
-      this.props.authUser,
+      this.props.sessionStore.authUser,
       this.props.message,
       this.state.editText
     );
@@ -43,47 +44,48 @@ class MessageItem extends Component {
   };
 
   render() {
-    const { message, onRemoveMessage } = this.props;
+    const { message, onRemoveMessage, sessionStore } = this.props;
     const { editMode, editText } = this.state;
 
     return (
-      <AuthUserContext.Consumer>
-        {authUser => (
-          <li>
-            {editMode ? (
-              <span>
-                <input
-                  type="text"
-                  value={editText}
-                  onChange={this.onChangeEditText}
-                />
-                <button onClick={this.onSaveEditText}>Save</button>
-                <button onClick={this.onToggleEditMode}>Reset</button>
-              </span>
-            ) : (
-              <span>
-                <strong>{message.user.username || message.user.userId}</strong>{" "}
-                {this.getFormattedTimestamp(message.createdAt)} {message.text}
-                {message.editedAt && <span>(Edited)</span>}
-                {authUser &&
-                  (authUser.uid === message.userId ||
-                    authUser.roles.includes(ROLES.ADMIN)) && (
-                    <span>
-                      <button onClick={this.onToggleEditMode}>Edit</button>
-                      <button
-                        onClick={() => onRemoveMessage(authUser, message)}
-                      >
-                        Remove
-                      </button>
-                    </span>
-                  )}
-              </span>
-            )}
-          </li>
+      <li>
+        {editMode ? (
+          <span>
+            <input
+              type="text"
+              value={editText}
+              onChange={this.onChangeEditText}
+            />
+            <button onClick={this.onSaveEditText}>Save</button>
+            <button onClick={this.onToggleEditMode}>Reset</button>
+          </span>
+        ) : (
+          <span>
+            <strong>{message.user.username || message.user.userId}</strong>{" "}
+            {this.getFormattedTimestamp(message.createdAt)} {message.text}
+            {message.editedAt && <span>(Edited)</span>}
+            {sessionStore.authUser &&
+              (sessionStore.authUser.uid === message.userId ||
+                sessionStore.authUser.roles.includes(ROLES.ADMIN)) && (
+                <span>
+                  <button onClick={this.onToggleEditMode}>Edit</button>
+                  <button
+                    onClick={() =>
+                      onRemoveMessage(sessionStore.authUser, message)
+                    }
+                  >
+                    Remove
+                  </button>
+                </span>
+              )}
+          </span>
         )}
-      </AuthUserContext.Consumer>
+      </li>
     );
   }
 }
 
-export default MessageItem;
+export default compose(
+  inject("sessionStore"),
+  observer
+)(MessageItem);
